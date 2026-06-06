@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-200 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-300;
+  }
+}
+
+@layer utilities {
+  .animate-slide-in-right {
+    animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes slideInRight {
+    from {
+      transform: translateX(24px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print\:bg-white,
+  .print\:bg-white * {
+    visibility: visible;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+}
