@@ -30,6 +30,7 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
   const [saving, setSaving] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [exchangeSearch, setExchangeSearch] = useState('');
+  const [isExpiredReturn, setIsExpiredReturn] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -93,6 +94,7 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
     setReason('');
     setProductSearch('');
     setExchangeSearch('');
+    setIsExpiredReturn(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -120,14 +122,31 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
       const { error: retError } = await supabase.from('customer_returns').insert([insert]);
       if (retError) throw retError;
 
-      // Update inventory: deduct returned product quantity (it's going back)
+      // Update inventory based on expired checkbox
       const returnedProduct = products.find(p => p.id === productId);
       if (returnedProduct) {
-        await supabase
-          .from('products')
-          .update({ quantity: returnedProduct.quantity + quantity })
-          .eq('id', productId)
-          .eq('user_id', userId);
+        if (isExpiredReturn) {
+          // Expired return: create a new product row with batch "Returned"
+          await supabase.from('products').insert([{
+            user_id: userId,
+            name: returnedProduct.name,
+            specifications: returnedProduct.specifications,
+            batch_number: 'Returned',
+            quantity: quantity,
+            min_threshold: returnedProduct.min_threshold,
+            single_price: returnedProduct.single_price,
+            expiry_date: null,
+            drawer_number: returnedProduct.drawer_number,
+            status: 'Expired',
+          }]);
+        } else {
+          // Normal return: add quantity back to existing product
+          await supabase
+            .from('products')
+            .update({ quantity: returnedProduct.quantity + quantity })
+            .eq('id', productId)
+            .eq('user_id', userId);
+        }
       }
 
       // If exchange, deduct exchange product from inventory
@@ -316,6 +335,28 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
                     Exchange
                   </button>
                 </div>
+              </div>
+
+              {/* Expired Return Checkbox */}
+              <div className={`p-4 rounded-xl border-2 transition-all ${
+                isExpiredReturn ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50'
+              }`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isExpiredReturn}
+                    onChange={e => setIsExpiredReturn(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/30"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Expired Product Return</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {isExpiredReturn
+                        ? 'A new product row will be created with batch "Returned" and status "Expired" instead of adding quantity to the existing product.'
+                        : 'Check this if the returned product is expired. It will be tracked as a separate batch with status "Expired".'}
+                    </p>
+                  </div>
+                </label>
               </div>
 
               {/* Quantity & Refund */}
