@@ -9,7 +9,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in (from localStorage)
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
@@ -24,7 +23,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(username: string, password: string) {
     setLoading(true);
     try {
-      // Query users table
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -35,24 +33,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('User not found');
       }
 
-      // Simple password check (in production, use bcrypt)
       if (data.password !== password) {
         throw new Error('Invalid password');
       }
 
-      // Store user in localStorage and state
-      const userData = {
-        id: data.id,
-        username: data.username,
-        password: data.password,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
-
+      const userData = data as User;
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function refreshUser() {
+    if (!user) return;
+    const { data } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    if (data) {
+      const userData = data as User;
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
     }
   }
 
@@ -62,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

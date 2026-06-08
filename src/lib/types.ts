@@ -20,6 +20,14 @@ export interface Database {
         Insert: BillItemInsert;
         Update: Partial<BillItemInsert>;
       };
+      customer_returns: {
+        Row: CustomerReturn;
+        Insert: CustomerReturnInsert;
+      };
+      wholeseller_returns: {
+        Row: WholesellerReturn;
+        Insert: WholesellerReturnInsert;
+      };
     };
   };
 }
@@ -28,6 +36,10 @@ export interface User {
   id: string;
   username: string;
   password: string;
+  store_name: string;
+  address: string;
+  email: string;
+  status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +93,42 @@ export interface BillItem {
 
 export type BillItemInsert = Omit<BillItem, 'id' | 'user_id'>;
 
+export interface CustomerReturn {
+  id: string;
+  user_id: string;
+  product_id: string;
+  product_name: string;
+  batch_number: string;
+  quantity: number;
+  return_type: 'refund' | 'exchange';
+  refund_amount: number;
+  exchange_product_id: string | null;
+  exchange_product_name: string;
+  exchange_quantity: number;
+  customer_name: string;
+  customer_phone: string;
+  reason: string;
+  created_at: string;
+}
+
+export type CustomerReturnInsert = Omit<CustomerReturn, 'id' | 'created_at'>;
+
+export interface WholesellerReturn {
+  id: string;
+  user_id: string;
+  product_id: string;
+  product_name: string;
+  batch_number: string;
+  quantity: number;
+  wholeseller_name: string;
+  reason: string;
+  refund_amount: number;
+  status: 'pending' | 'completed';
+  created_at: string;
+}
+
+export type WholesellerReturnInsert = Omit<WholesellerReturn, 'id' | 'created_at'>;
+
 export interface CartItem {
   product: Product;
   quantity: number;
@@ -103,4 +151,5 @@ export interface AuthContextType {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }

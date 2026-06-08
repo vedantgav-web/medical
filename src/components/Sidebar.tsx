@@ -1,7 +1,7 @@
-import { LayoutDashboard, Package, Receipt, Cross, LogOut } from 'lucide-react';
+import { LayoutDashboard, Package, Receipt, Cross, LogOut, RotateCcw, Truck } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 
-type Page = 'dashboard' | 'inventory' | 'billing';
+type Page = 'dashboard' | 'inventory' | 'billing' | 'customer-returns' | 'wholeseller-returns';
 
 interface SidebarProps {
   currentPage: Page;
@@ -12,6 +12,8 @@ const navItems = [
   { id: 'dashboard' as Page, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'inventory' as Page, label: 'Inventory', icon: Package },
   { id: 'billing' as Page, label: 'Billing', icon: Receipt },
+  { id: 'customer-returns' as Page, label: 'Cust. Returns', icon: RotateCcw },
+  { id: 'wholeseller-returns' as Page, label: 'Wh. Returns', icon: Truck },
 ];
 
 export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
@@ -25,7 +27,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
             <Cross className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-white font-semibold text-sm leading-tight">MediStore</p>
+            <p className="text-white font-semibold text-sm leading-tight">{user?.store_name || 'MediStore'}</p>
             <p className="text-slate-400 text-xs">Management System</p>
           </div>
         </div>
@@ -56,6 +58,12 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
         <div className="px-3 py-3 bg-slate-800/50 rounded-lg">
           <p className="text-xs text-slate-400 mb-1">Logged in as</p>
           <p className="text-sm font-semibold text-white truncate">{user?.username}</p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className={`w-2 h-2 rounded-full ${user?.status === 'active' ? 'bg-emerald-400' : 'bg-red-400'}`} />
+            <span className={`text-xs ${user?.status === 'active' ? 'text-emerald-400' : 'text-red-400'}`}>
+              {user?.status === 'active' ? 'Active' : 'Inactive'}
+            </span>
+          </div>
         </div>
 
         {/* Logout Button */}
@@ -69,7 +77,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       </div>
 
       <div className="px-6 py-3 border-t border-slate-700/60">
-        <p className="text-slate-500 text-xs">v1.0.0 · Multi-User</p>
+        <p className="text-slate-500 text-xs">v1.1.0 · Multi-User</p>
       </div>
     </aside>
   );
