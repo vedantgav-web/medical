@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from './lib/auth';
-import { AlertTriangle, PowerOff } from 'lucide-react';
+import { AlertTriangle, PowerOff, Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
@@ -14,6 +14,7 @@ type Page = 'dashboard' | 'inventory' | 'billing' | 'customer-returns' | 'wholes
 export default function App() {
   const { user, loading } = useAuth();
   const [page, setPage] = useState<Page>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (loading) {
     return (
@@ -57,13 +58,36 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans">
-      <Sidebar currentPage={page} onNavigate={setPage} />
+      <Sidebar
+        currentPage={page}
+        onNavigate={setPage}
+        mobileOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {page === 'dashboard' && <Dashboard userId={user.id} />}
-        {page === 'inventory' && <Inventory userId={user.id} />}
-        {page === 'billing' && <Billing userId={user.id} />}
-        {page === 'customer-returns' && <CustomerReturns userId={user.id} />}
-        {page === 'wholeseller-returns' && <WholesellerReturns userId={user.id} />}
+        {/* Mobile top bar */}
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 print:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+          {page === 'dashboard' && <h1 className="text-base font-bold text-gray-800">Dashboard</h1>}
+          {page === 'inventory' && <h1 className="text-base font-bold text-gray-800">Inventory</h1>}
+          {page === 'billing' && <h1 className="text-base font-bold text-gray-800">Billing</h1>}
+          {page === 'customer-returns' && <h1 className="text-base font-bold text-gray-800">Customer Returns</h1>}
+          {page === 'wholeseller-returns' && <h1 className="text-base font-bold text-gray-800">Wholeseller Returns</h1>}
+        </div>
+
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          {page === 'dashboard' && <Dashboard userId={user.id} />}
+          {page === 'inventory' && <Inventory userId={user.id} />}
+          {page === 'billing' && <Billing userId={user.id} />}
+          {page === 'customer-returns' && <CustomerReturns userId={user.id} />}
+          {page === 'wholeseller-returns' && <WholesellerReturns userId={user.id} />}
+        </div>
       </main>
     </div>
   );
