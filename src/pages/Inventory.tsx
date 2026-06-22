@@ -380,7 +380,7 @@ export default function Inventory({ userId }: InventoryProps) {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Batch</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       <button onClick={() => handleSort('quantity')} className="flex items-center gap-1.5 hover:text-gray-800 transition-colors">
-                        Qty <SortIcon field="quantity" />
+                        Stock <SortIcon field="quantity" />
                       </button>
                     </th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -416,10 +416,24 @@ export default function Inventory({ userId }: InventoryProps) {
                         </td>
                         <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{product.batch_number || '—'}</td>
                         <td className="px-4 py-3">
-                          <span className={`font-semibold ${isLow ? 'text-amber-600' : 'text-gray-800'}`}>
-                            {product.quantity}
-                            {isLow && <AlertTriangle size={12} className="inline ml-1 text-amber-500" />}
-                          </span>
+                          {(() => {
+                            const strips = product.quantity;
+                            const tps = product.tablets_per_strip || 0;
+                            const canTablet = product.sell_by_tablet && tps > 0;
+                            return (
+                              <div className="flex flex-col">
+                                <span className={`font-semibold ${isLow ? 'text-amber-600' : 'text-gray-800'}`}>
+                                  {strips} {strips === 1 ? 'strip' : 'strips'}
+                                  {isLow && <AlertTriangle size={12} className="inline ml-1 text-amber-500" />}
+                                </span>
+                                {canTablet && (
+                                  <span className="text-xs text-gray-400">
+                                    = {strips * tps} tablets
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3 font-medium text-gray-800">₹{product.single_price.toFixed(2)}</td>
                         <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">₹{(product.total_price ?? 0).toFixed(2)}</td>

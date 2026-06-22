@@ -62,6 +62,7 @@ export interface Product {
   tablets_per_strip: number;
   sell_by_tablet: boolean;
   tablet_price: number;
+  loose_tablets: number;
   created_at: string;
   updated_at: string;
 }

@@ -88,7 +88,7 @@ export default function ProductDetailPanel({ product, onClose, onUpdate, onDelet
                 <span className="text-teal-400 mx-1.5">·</span>
                 <span className="font-semibold">₹{effectiveTabletPrice.toFixed(2)}/tablet</span>
                 <span className="text-teal-400 mx-1.5">·</span>
-                <span className="font-semibold">{product.quantity * product.tablets_per_strip} tablets available</span>
+                <span className="font-semibold">{product.quantity * product.tablets_per_strip + (product.loose_tablets || 0)} tablets available{(product.loose_tablets || 0) > 0 && <span className="text-amber-600"> ({product.loose_tablets} loose)</span>}</span>
               </div>
             </div>
           )}

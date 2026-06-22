@@ -41,12 +41,17 @@ export default function Billing({ userId }: BillingProps) {
   }, []);
 
   const filteredProducts = search.trim().length > 0
-    ? products.filter(p =>
-        (p.name.toLowerCase().includes(search.toLowerCase()) ||
-         p.specifications.toLowerCase().includes(search.toLowerCase())) &&
-        p.status === 'Good' &&
-        p.quantity > 0
-      ).slice(0, 8)
+    ? products.filter(p => {
+        if (p.status !== 'Good') return false;
+        const q = search.toLowerCase();
+        const matchesSearch =
+          p.name.toLowerCase().includes(q) ||
+          p.specifications.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+        const totalTablets = totalTabletsAvailable(p);
+        if (p.sell_by_tablet && p.tablets_per_strip > 0) return totalTablets > 0;
+        return p.quantity > 0;
+      }).slice(0, 8)
     : [];
 
   function addToCart(product: Product, mode: 'strip' | 'tablet') {
@@ -66,11 +71,19 @@ export default function Billing({ userId }: BillingProps) {
     searchRef.current?.focus();
   }
 
-  function maxAvailable(product: Product, mode: 'strip' | 'tablet'): number {
-    if (mode === 'tablet' && product.sell_by_tablet && product.tablets_per_strip > 0) {
-      return product.quantity * product.tablets_per_strip;
+  function totalTabletsAvailable(product: Product): number {
+    if (product.tablets_per_strip > 0) {
+      return product.quantity * product.tablets_per_strip + (product.loose_tablets || 0);
     }
     return product.quantity;
+  }
+
+  function maxAvailable(product: Product, mode: 'strip' | 'tablet'): number {
+    if (mode === 'tablet' && product.sell_by_tablet && product.tablets_per_strip > 0) {
+      return totalTabletsAvailable(product);
+    }
+    // strip mode: a partial leftover strip also counts as a strip
+    return product.quantity + (product.loose_tablets && product.tablets_per_strip > 0 ? 1 : 0);
   }
 
   function effectiveTabletPrice(product: Product): number {
@@ -142,26 +155,56 @@ export default function Billing({ userId }: BillingProps) {
 
       if (itemsError) throw new Error(itemsError.message);
 
-      // Deduct inventory: strips (integer) based on tablet sales
-      // Tablet sales on a product consume tablets_per_strip tablets = (tabletsSold / tablets_per_strip) strips
-      // Strip sales consume quantity_sold strips directly
+      // Deduct inventory with proper tablet tracking.
+      // Tablet sales: consume from loose_tablets first, then full strips when needed.
+      // Strip sales: consume quantity_sold strips directly.
       for (const item of cart) {
-        if (item.sellMode === 'tablet' && item.product.tablets_per_strip > 0) {
-          const tabletsSold = item.quantity;
-          const stripsToRemove = Math.ceil(tabletsSold / item.product.tablets_per_strip);
-          const newQty = Math.max(0, item.product.quantity - stripsToRemove);
-          await supabase
-            .from('products')
-            .update({ quantity: newQty })
-            .eq('id', item.product.id)
-            .eq('user_id', userId);
+        const p = item.product;
+        if (item.sellMode === 'tablet' && p.tablets_per_strip > 0 && p.sell_by_tablet) {
+          let remaining = item.quantity; // tablets to deduct
+          let loose = p.loose_tablets || 0;
+          let strips = p.quantity;
+
+          // 1) use up loose tablets first
+          if (loose > 0) {
+            const take = Math.min(loose, remaining);
+            loose -= take;
+            remaining -= take;
+          }
+          // 2) consume whole strips for the rest
+          if (remaining > 0) {
+            const stripsNeeded = Math.ceil(remaining / p.tablets_per_strip);
+            strips = Math.max(0, strips - stripsNeeded);
+            const tabletsFromStrips = stripsNeeded * p.tablets_per_strip;
+            const leftover = tabletsFromStrips - remaining; // tablets left from newly broken strip(s)
+            loose = Math.max(0, leftover);
+            remaining = 0;
+          }
+
+          const totalLeft = strips * p.tablets_per_strip + loose;
+          if (totalLeft <= 0) {
+            // all stock exhausted — remove product from inventory
+            await supabase.from('products').delete().eq('id', p.id).eq('user_id', userId);
+          } else {
+            await supabase
+              .from('products')
+              .update({ quantity: strips, loose_tablets: loose })
+              .eq('id', p.id)
+              .eq('user_id', userId);
+          }
         } else {
-          const newQty = Math.max(0, item.product.quantity - item.quantity);
-          await supabase
-            .from('products')
-            .update({ quantity: newQty })
-            .eq('id', item.product.id)
-            .eq('user_id', userId);
+          // strip sale
+          const newQty = Math.max(0, p.quantity - item.quantity);
+          const totalLeft = newQty * (p.tablets_per_strip > 0 ? p.tablets_per_strip : 1) + (p.loose_tablets || 0);
+          if (totalLeft <= 0) {
+            await supabase.from('products').delete().eq('id', p.id).eq('user_id', userId);
+          } else {
+            await supabase
+              .from('products')
+              .update({ quantity: newQty })
+              .eq('id', p.id)
+              .eq('user_id', userId);
+          }
         }
       }
 
@@ -280,6 +323,9 @@ export default function Billing({ userId }: BillingProps) {
                     {filteredProducts.map(product => {
                       const tPrice = effectiveTabletPrice(product);
                       const canTablet = product.sell_by_tablet && product.tablets_per_strip > 0;
+                      const loose = product.loose_tablets || 0;
+                      const showLoose = canTablet && loose > 0;
+                      const totalTablets = totalTabletsAvailable(product);
                       return (
                         <div key={product.id} className="px-4 py-3 hover:bg-teal-50 transition-colors border-b border-gray-50 last:border-0">
                           <div className="flex items-start justify-between gap-3 mb-2">
@@ -289,7 +335,11 @@ export default function Billing({ userId }: BillingProps) {
                             </div>
                             <div className="text-right flex-shrink-0">
                               <p className="text-sm font-bold text-teal-600">₹{product.single_price.toFixed(2)}</p>
-                              <p className="text-xs text-gray-400">{product.quantity} strips</p>
+                              <p className="text-xs text-gray-400">
+                                {product.quantity} {product.quantity === 1 ? 'strip' : 'strips'}
+                                {showLoose && <span className="text-amber-600"> +{loose} tbl</span>}
+                                {canTablet && <span className="text-gray-400"> · {totalTablets} tbl</span>}
+                              </p>
                             </div>
                           </div>
                           <div className="flex gap-2">
