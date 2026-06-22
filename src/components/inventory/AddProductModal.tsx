@@ -16,6 +16,9 @@ const emptyForm: ProductInsert = {
   single_price: 0,
   expiry_date: null,
   drawer_number: '',
+  tablets_per_strip: 0,
+  sell_by_tablet: false,
+  tablet_price: 0,
 };
 
 export default function AddProductModal({ onClose, onSave }: AddProductModalProps) {
@@ -146,7 +149,7 @@ export default function AddProductModal({ onClose, onSave }: AddProductModalProp
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Single Price (₹) *</label>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Single Price / Strip (₹) *</label>
               <input
                 type="number"
                 min={0}
@@ -159,9 +162,48 @@ export default function AddProductModal({ onClose, onSave }: AddProductModalProp
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Total Price (₹)</label>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Total Value (₹)</label>
               <div className="w-full px-3.5 py-2.5 rounded-lg border border-teal-200 bg-teal-50 text-sm font-semibold text-teal-700">
                 ₹{totalPrice.toFixed(2)}
+              </div>
+            </div>
+
+            {/* Tablet / Strip settings */}
+            <div className="col-span-2 border-t border-gray-100 pt-4 mt-1">
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">Strip &amp; Tablet Settings</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Tablets per Strip</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.tablets_per_strip}
+                    onChange={e => set('tablets_per_strip', parseInt(e.target.value) || 0)}
+                    placeholder="e.g. 10"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Price per Tablet (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.tablet_price}
+                    onChange={e => set('tablet_price', parseFloat(e.target.value) || 0)}
+                    placeholder="0 = derived from strip"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors"
+                  />
+                </div>
+                <label className="col-span-2 flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={form.sell_by_tablet}
+                    onChange={e => set('sell_by_tablet', e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-500/30"
+                  />
+                  <span className="text-sm text-gray-700">Allow selling loose tablets (not just whole strips)</span>
+                </label>
               </div>
             </div>
 

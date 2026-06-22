@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Receipt, AlertTriangle, Award, Package, ArrowUp, DollarSign, ShoppingCart, Calendar } from 'lucide-react';
+import { TrendingUp, Receipt, AlertTriangle, Award, Package, ArrowUp, DollarSign, ShoppingCart } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Product, Bill, TimePeriod, DailySales } from '../lib/types';
+import RecentTransactions from '../components/RecentTransactions';
 
 interface TopProduct {
   product_id: string;
@@ -438,38 +439,8 @@ export default function Dashboard({ userId }: DashboardProps) {
         </div>
       </div>
 
-      {/* Recent Bills Table */}
-      {stats.recentBills.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
-            <Receipt size={16} className="text-blue-500" />
-            <h2 className="text-sm font-semibold text-gray-800">Recent Transactions</h2>
-          </div>
-          <div className="overflow-y-auto" style={{ maxHeight: '420px' }}>
-            <div className="divide-y divide-gray-50">
-              {stats.recentBills.slice(0, 10).map(bill => (
-                <div key={bill.id} className="flex items-center justify-between px-5 py-3.5">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{bill.customer_name}</p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(bill.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                      {bill.customer_phone && ` · ${bill.customer_phone}`}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">₹{bill.total_amount.toFixed(2)}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      bill.payment_method === 'Cash' ? 'bg-emerald-100 text-emerald-700' :
-                      bill.payment_method === 'UPI' ? 'bg-blue-100 text-blue-700' :
-                      'bg-orange-100 text-orange-700'
-                    }`}>{bill.payment_method}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Recent Transactions (search, date range, pagination) */}
+      <RecentTransactions userId={userId} />
     </div>
   );
 }

@@ -59,6 +59,9 @@ export interface Product {
   expiry_date: string | null;
   drawer_number: string;
   status: 'Good' | 'Expired';
+  tablets_per_strip: number;
+  sell_by_tablet: boolean;
+  tablet_price: number;
   created_at: string;
   updated_at: string;
 }
@@ -132,6 +135,7 @@ export type WholesellerReturnInsert = Omit<WholesellerReturn, 'id' | 'created_at
 export interface CartItem {
   product: Product;
   quantity: number;
+  sellMode: 'strip' | 'tablet';
 }
 
 export interface BillWithItems extends Bill {

@@ -19,6 +19,10 @@ export default function ProductDetailPanel({ product, onClose, onUpdate, onDelet
   const isExpired = product.status === 'Expired';
   const today = new Date().toISOString().split('T')[0];
 
+  const effectiveTabletPrice = product.tablet_price > 0
+    ? product.tablet_price
+    : (product.tablets_per_strip > 0 ? product.single_price / product.tablets_per_strip : 0);
+
   async function handleQtyIncrease() {
     setLoading(true);
     await onUpdate(product.id, { quantity: product.quantity + qtyChange });
@@ -75,6 +79,20 @@ export default function ProductDetailPanel({ product, onClose, onUpdate, onDelet
         </div>
 
         <div className="px-5 py-4 space-y-5">
+          {/* Tablet/Strip info banner */}
+          {product.sell_by_tablet && product.tablets_per_strip > 0 && (
+            <div className="bg-teal-50 rounded-xl px-4 py-2.5 flex items-center gap-3 border border-teal-100">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500 text-white text-xs font-semibold">Loose</span>
+              <div className="text-xs text-teal-700">
+                <span className="font-semibold">{product.tablets_per_strip} tablets/strip</span>
+                <span className="text-teal-400 mx-1.5">·</span>
+                <span className="font-semibold">₹{effectiveTabletPrice.toFixed(2)}/tablet</span>
+                <span className="text-teal-400 mx-1.5">·</span>
+                <span className="font-semibold">{product.quantity * product.tablets_per_strip} tablets available</span>
+              </div>
+            </div>
+          )}
+
           {/* Info Grid */}
           <div className="grid grid-cols-2 gap-3">
             {[

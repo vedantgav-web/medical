@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, ShoppingCart, User, Phone, CreditCard, CheckCircle, AlertCircle, Minus } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, Plus, Trash2, ShoppingCart, User, Phone, CreditCard, CheckCircle, AlertCircle, Minus, Pill } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Product, CartItem, Bill, BillItem } from '../lib/types';
 import Receipt from '../components/billing/Receipt';
@@ -49,37 +49,58 @@ export default function Billing({ userId }: BillingProps) {
       ).slice(0, 8)
     : [];
 
-  function addToCart(product: Product) {
+  function addToCart(product: Product, mode: 'strip' | 'tablet') {
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      const existing = prev.find(item => item.product.id === product.id && item.sellMode === mode);
       if (existing) {
         return prev.map(item =>
-          item.product.id === product.id
-            ? { ...item, quantity: Math.min(item.quantity + 1, product.quantity) }
+          item.product.id === product.id && item.sellMode === mode
+            ? { ...item, quantity: Math.min(item.quantity + 1, maxAvailable(item.product, mode)) }
             : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: 1, sellMode: mode }];
     });
     setSearch('');
     setShowDropdown(false);
     searchRef.current?.focus();
   }
 
-  function updateQty(productId: string, qty: number) {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    const clamped = Math.max(1, Math.min(qty, product.quantity));
-    setCart(prev => prev.map(item =>
-      item.product.id === productId ? { ...item, quantity: clamped } : item
-    ));
+  function maxAvailable(product: Product, mode: 'strip' | 'tablet'): number {
+    if (mode === 'tablet' && product.sell_by_tablet && product.tablets_per_strip > 0) {
+      return product.quantity * product.tablets_per_strip;
+    }
+    return product.quantity;
   }
 
-  function removeFromCart(productId: string) {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  function effectiveTabletPrice(product: Product): number {
+    return product.tablet_price > 0
+      ? product.tablet_price
+      : (product.tablets_per_strip > 0 ? product.single_price / product.tablets_per_strip : 0);
   }
 
-  const grandTotal = cart.reduce((sum, item) => sum + item.product.single_price * item.quantity, 0);
+  function updateQty(productId: string, mode: 'strip' | 'tablet', qty: number) {
+    setCart(prev => prev.map(item => {
+      if (item.product.id !== productId || item.sellMode !== mode) return item;
+      const max = maxAvailable(item.product, mode);
+      const clamped = Math.max(1, Math.min(qty, max));
+      return { ...item, quantity: clamped };
+    }));
+  }
+
+  function removeFromCart(productId: string, mode: 'strip' | 'tablet') {
+    setCart(prev => prev.filter(item => !(item.product.id === productId && item.sellMode === mode)));
+  }
+
+  const grandTotal = cart.reduce((sum, item) => sum + lineTotal(item), 0);
+
+  function lineTotal(item: CartItem): number {
+    if (item.sellMode === 'tablet') {
+      return effectiveTabletPrice(item.product) * item.quantity;
+    }
+    return item.product.single_price * item.quantity;
+  }
+
   const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
 
   async function completeSale() {
@@ -109,7 +130,9 @@ export default function Billing({ userId }: BillingProps) {
         product_id: item.product.id,
         user_id: userId,
         quantity_sold: item.quantity,
-        price_per_unit: item.product.single_price,
+        price_per_unit: item.sellMode === 'tablet'
+          ? effectiveTabletPrice(item.product)
+          : item.product.single_price,
       }));
 
       const { data: itemsData, error: itemsError } = await supabase
@@ -119,12 +142,27 @@ export default function Billing({ userId }: BillingProps) {
 
       if (itemsError) throw new Error(itemsError.message);
 
+      // Deduct inventory: strips (integer) based on tablet sales
+      // Tablet sales on a product consume tablets_per_strip tablets = (tabletsSold / tablets_per_strip) strips
+      // Strip sales consume quantity_sold strips directly
       for (const item of cart) {
-        await supabase
-          .from('products')
-          .update({ quantity: item.product.quantity - item.quantity })
-          .eq('id', item.product.id)
-          .eq('user_id', userId);
+        if (item.sellMode === 'tablet' && item.product.tablets_per_strip > 0) {
+          const tabletsSold = item.quantity;
+          const stripsToRemove = Math.ceil(tabletsSold / item.product.tablets_per_strip);
+          const newQty = Math.max(0, item.product.quantity - stripsToRemove);
+          await supabase
+            .from('products')
+            .update({ quantity: newQty })
+            .eq('id', item.product.id)
+            .eq('user_id', userId);
+        } else {
+          const newQty = Math.max(0, item.product.quantity - item.quantity);
+          await supabase
+            .from('products')
+            .update({ quantity: newQty })
+            .eq('id', item.product.id)
+            .eq('user_id', userId);
+        }
       }
 
       const receiptItems = (itemsData as BillItem[]).map(bi => ({
@@ -148,6 +186,12 @@ export default function Billing({ userId }: BillingProps) {
       setProcessing(false);
     }
   }
+
+  const cartLineMap = useMemo(() => {
+    const m = new Map<string, CartItem>();
+    for (const c of cart) m.set(`${c.product.id}-${c.sellMode}`, c);
+    return m;
+  }, [cart]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-gray-50 overflow-hidden">
@@ -232,23 +276,41 @@ export default function Billing({ userId }: BillingProps) {
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors"
                 />
                 {showDropdown && filteredProducts.length > 0 && (
-                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden max-h-56 overflow-y-auto">
-                    {filteredProducts.map(product => (
-                      <button
-                        key={product.id}
-                        onClick={() => addToCart(product)}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-teal-50 transition-colors text-left border-b border-gray-50 last:border-0"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
-                          <p className="text-xs text-gray-400 truncate">{product.specifications || `Batch: ${product.batch_number}`}</p>
+                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden max-h-72 overflow-y-auto">
+                    {filteredProducts.map(product => {
+                      const tPrice = effectiveTabletPrice(product);
+                      const canTablet = product.sell_by_tablet && product.tablets_per_strip > 0;
+                      return (
+                        <div key={product.id} className="px-4 py-3 hover:bg-teal-50 transition-colors border-b border-gray-50 last:border-0">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
+                              <p className="text-xs text-gray-400 truncate">{product.specifications || `Batch: ${product.batch_number}`}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-sm font-bold text-teal-600">₹{product.single_price.toFixed(2)}</p>
+                              <p className="text-xs text-gray-400">{product.quantity} strips</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => addToCart(product, 'strip')}
+                              className="flex-1 py-1.5 rounded-lg bg-gray-100 hover:bg-teal-100 text-gray-700 hover:text-teal-700 text-xs font-semibold transition-colors"
+                            >
+                              + Add Strip
+                            </button>
+                            {canTablet && (
+                              <button
+                                onClick={() => addToCart(product, 'tablet')}
+                                className="flex-1 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1"
+                              >
+                                <Pill size={12} /> Add Tablet · ₹{tPrice.toFixed(2)}
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right ml-3 flex-shrink-0">
-                          <p className="text-sm font-bold text-teal-600">₹{product.single_price.toFixed(2)}</p>
-                          <p className="text-xs text-gray-400">{product.quantity} in stock</p>
-                        </div>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {showDropdown && search.trim().length > 0 && filteredProducts.length === 0 && (
@@ -264,48 +326,61 @@ export default function Billing({ userId }: BillingProps) {
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-4 sm:px-5 py-3 border-b border-gray-50 flex items-center gap-2">
                   <ShoppingCart size={15} className="text-teal-500" />
-                  <h2 className="text-sm font-semibold text-gray-700">Cart ({cart.length} items)</h2>
+                  <h2 className="text-sm font-semibold text-gray-700">Cart ({cart.length} {cart.length === 1 ? 'line' : 'lines'})</h2>
                 </div>
                 <div className="divide-y divide-gray-50">
-                  {cart.map(item => (
-                    <div key={item.product.id} className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{item.product.name}</p>
-                        <p className="text-xs text-gray-400">₹{item.product.single_price.toFixed(2)} / unit</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                  {cart.map(item => {
+                    const isTablet = item.sellMode === 'tablet';
+                    const lineT = lineTotal(item);
+                    const unitPrice = isTablet ? effectiveTabletPrice(item.product) : item.product.single_price;
+                    const unitLabel = isTablet ? 'tablet' : 'strip';
+                    return (
+                      <div key={`${item.product.id}-${item.sellMode}`} className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-gray-800 truncate">{item.product.name}</p>
+                            {isTablet && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 text-[10px] font-semibold flex-shrink-0">
+                                <Pill size={9} /> Tablet
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400">₹{unitPrice.toFixed(2)} / {unitLabel}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => updateQty(item.product.id, item.sellMode, item.quantity - 1)}
+                            className="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center justify-center"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            max={maxAvailable(item.product, item.sellMode)}
+                            value={item.quantity}
+                            onChange={e => updateQty(item.product.id, item.sellMode, parseInt(e.target.value) || 1)}
+                            className="w-12 text-center px-1 py-1 rounded-lg border border-gray-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                          />
+                          <button
+                            onClick={() => updateQty(item.product.id, item.sellMode, item.quantity + 1)}
+                            className="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center justify-center"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                        <div className="text-right w-16 sm:w-20 flex-shrink-0">
+                          <p className="text-sm font-bold text-gray-900">₹{lineT.toFixed(2)}</p>
+                        </div>
                         <button
-                          onClick={() => updateQty(item.product.id, item.quantity - 1)}
-                          className="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center justify-center"
+                          onClick={() => removeFromCart(item.product.id, item.sellMode)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
                         >
-                          <Minus size={14} />
-                        </button>
-                        <input
-                          type="number"
-                          min={1}
-                          max={item.product.quantity}
-                          value={item.quantity}
-                          onChange={e => updateQty(item.product.id, parseInt(e.target.value) || 1)}
-                          className="w-12 text-center px-1 py-1 rounded-lg border border-gray-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                        />
-                        <button
-                          onClick={() => updateQty(item.product.id, item.quantity + 1)}
-                          className="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center justify-center"
-                        >
-                          <Plus size={14} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
-                      <div className="text-right w-16 sm:w-20 flex-shrink-0">
-                        <p className="text-sm font-bold text-gray-900">₹{(item.product.single_price * item.quantity).toFixed(2)}</p>
-                      </div>
-                      <button
-                        onClick={() => removeFromCart(item.product.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -336,17 +411,21 @@ export default function Billing({ userId }: BillingProps) {
               </div>
             ) : (
               <>
-                {cart.map(item => (
-                  <div key={item.product.id} className="flex justify-between text-sm">
-                    <div className="flex-1 pr-2">
-                      <p className="text-gray-700 font-medium text-xs leading-snug">{item.product.name}</p>
-                      <p className="text-gray-400 text-xs">{item.quantity} × ₹{item.product.single_price.toFixed(2)}</p>
+                {cart.map(item => {
+                  const isTablet = item.sellMode === 'tablet';
+                  const unitPrice = isTablet ? effectiveTabletPrice(item.product) : item.product.single_price;
+                  return (
+                    <div key={`${item.product.id}-${item.sellMode}`} className="flex justify-between text-sm">
+                      <div className="flex-1 pr-2">
+                        <p className="text-gray-700 font-medium text-xs leading-snug">{item.product.name}</p>
+                        <p className="text-gray-400 text-xs">{item.quantity} × ₹{unitPrice.toFixed(2)} {isTablet ? 'tbl' : 'str'}</p>
+                      </div>
+                      <span className="text-gray-800 font-semibold text-xs tabular-nums">
+                        ₹{lineTotal(item).toFixed(2)}
+                      </span>
                     </div>
-                    <span className="text-gray-800 font-semibold text-xs tabular-nums">
-                      ₹{(item.product.single_price * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
                 <div className="border-t border-gray-100 pt-3 mt-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">Items</span>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Search, ArrowUpDown, ArrowUp, ArrowDown, Package, AlertTriangle, X, Filter } from 'lucide-react';
+import { Plus, Search, ArrowUpDown, ArrowUp, ArrowDown, Package, AlertTriangle, X, Filter, PlusCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Product, ProductInsert, ProductUpdate } from '../lib/types';
 import AddProductModal from '../components/inventory/AddProductModal';
@@ -46,8 +46,12 @@ interface InventoryProps {
 }
 
 export default function Inventory({ userId }: InventoryProps) {
+  const PAGE_SIZE = 20;
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -61,28 +65,57 @@ export default function Inventory({ userId }: InventoryProps) {
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (!error && data) setProducts(data as Product[]);
-    setLoading(false);
-  }, [userId]);
+  const fetchProducts = useCallback(async (mode: 'initial' | 'more' = 'initial') => {
+    if (mode === 'initial') {
+      setLoading(true);
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
 
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+    const from = mode === 'initial' ? 0 : products.length;
+    const to = from + PAGE_SIZE - 1;
+
+    let query = supabase
+      .from('products')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId);
+
+    const q = search.trim();
+    if (q) query = query.or(`name.ilike.%${q}%,specifications.ilike.%${q}%,batch_number.ilike.%${q}%,drawer_number.ilike.%${q}%`);
+
+    query = query.order('created_at', { ascending: false }).range(from, to);
+
+    const { data, error: err, count } = await query;
+
+    if (!err && data) {
+      if (mode === 'initial') setProducts(data as Product[]);
+      else setProducts(prev => [...prev, ...(data as Product[])]);
+      setTotalCount(count ?? null);
+      setHasMore(data.length === PAGE_SIZE && (count == null || from + data.length < count));
+    }
+
+    if (mode === 'initial') setLoading(false);
+    else setLoadingMore(false);
+  }, [userId, search, products.length]);
+
+  // Refetch when search changes (debounced via timeout)
+  useEffect(() => {
+    const t = setTimeout(() => fetchProducts('initial'), 300);
+    return () => clearTimeout(t);
+  }, [fetchProducts]);
+
+  function loadMore() { fetchProducts('more'); }
 
   async function handleAddProduct(product: ProductInsert) {
     const { error } = await supabase.from('products').insert([{ ...product, user_id: userId }]);
-    if (!error) await fetchProducts();
+    if (!error) await fetchProducts('initial');
   }
 
   async function handleUpdateProduct(id: string, update: ProductUpdate) {
     const { error } = await supabase.from('products').update(update).eq('id', id).eq('user_id', userId);
     if (!error) {
-      await fetchProducts();
+      await fetchProducts('initial');
       setSelectedProduct(prev => prev ? { ...prev, ...update, id } : null);
     }
   }
@@ -90,7 +123,7 @@ export default function Inventory({ userId }: InventoryProps) {
   async function handleDeleteProduct(id: string) {
     const { error } = await supabase.from('products').delete().eq('id', id).eq('user_id', userId);
     if (!error) {
-      await fetchProducts();
+      await fetchProducts('initial');
       setSelectedProduct(null);
     }
   }
@@ -119,16 +152,6 @@ export default function Inventory({ userId }: InventoryProps) {
   const filtered = useMemo(() => {
     return products
       .filter(p => {
-        const q = search.toLowerCase();
-        const matchesSearch = search.trim() === '' ||
-          p.name.toLowerCase().includes(q) ||
-          p.specifications.toLowerCase().includes(q) ||
-          p.batch_number.toLowerCase().includes(q) ||
-          p.drawer_number.toLowerCase().includes(q) ||
-          p.single_price.toString().includes(q) ||
-          (p.quantity && p.quantity.toString().includes(q));
-        if (!matchesSearch) return false;
-
         if (filters.price) {
           const price = p.single_price;
           if (filters.price === '0-100' && !(price >= 0 && price < 100)) return false;
@@ -171,7 +194,7 @@ export default function Inventory({ userId }: InventoryProps) {
         if (av > bv) return sortDir === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [products, search, filters, sortField, sortDir]);
+  }, [products, filters, sortField, sortDir]);
 
   function SortIcon({ field }: { field: SortField }) {
     if (sortField !== field) return <ArrowUpDown size={13} className="text-gray-400" />;
@@ -194,7 +217,9 @@ export default function Inventory({ userId }: InventoryProps) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Inventory</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{filtered.length} of {products.length} products</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {loading ? 'Loading…' : `${filtered.length} shown${totalCount != null ? ` of ${totalCount}` : ''}${search ? ` for "${search}"` : ''}`}
+            </p>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
@@ -418,6 +443,22 @@ export default function Inventory({ userId }: InventoryProps) {
                 </tbody>
               </table>
             </div>
+
+            {hasMore && (
+              <div className="flex justify-center py-4 border-t border-gray-50">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-50 text-teal-700 text-sm font-semibold hover:bg-teal-100 transition-colors disabled:opacity-50"
+                >
+                  {loadingMore ? (
+                    <><div className="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" /> Loading…</>
+                  ) : (
+                    <><PlusCircle size={16} /> Load More</>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
