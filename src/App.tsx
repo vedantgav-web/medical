@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from './lib/auth';
 import { AlertTriangle, PowerOff, Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
+import ThemeToggle from './components/ThemeToggle';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import Billing from './pages/Billing';
@@ -57,7 +58,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans">
+    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-slate-950 font-sans text-gray-900 dark:text-slate-100">
       <Sidebar
         currentPage={page}
         onNavigate={setPage}
@@ -66,19 +67,20 @@ export default function App() {
       />
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile top bar */}
-        <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 print:hidden">
+        <div className="lg:hidden flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800 print:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
             aria-label="Open menu"
           >
             <Menu size={20} />
           </button>
-          {page === 'dashboard' && <h1 className="text-base font-bold text-gray-800">Dashboard</h1>}
-          {page === 'inventory' && <h1 className="text-base font-bold text-gray-800">Inventory</h1>}
-          {page === 'billing' && <h1 className="text-base font-bold text-gray-800">Billing</h1>}
-          {page === 'customer-returns' && <h1 className="text-base font-bold text-gray-800">Customer Returns</h1>}
-          {page === 'wholeseller-returns' && <h1 className="text-base font-bold text-gray-800">Wholeseller Returns</h1>}
+          {page === 'dashboard' && <h1 className="text-base font-bold text-gray-800 dark:text-slate-100 flex-1">Dashboard</h1>}
+          {page === 'inventory' && <h1 className="text-base font-bold text-gray-800 dark:text-slate-100 flex-1">Inventory</h1>}
+          {page === 'billing' && <h1 className="text-base font-bold text-gray-800 dark:text-slate-100 flex-1">Billing</h1>}
+          {page === 'customer-returns' && <h1 className="text-base font-bold text-gray-800 dark:text-slate-100 flex-1">Customer Returns</h1>}
+          {page === 'wholeseller-returns' && <h1 className="text-base font-bold text-gray-800 dark:text-slate-100 flex-1">Wholeseller Returns</h1>}
+          <ThemeToggle />
         </div>
 
         <div className="flex-1 flex min-h-0 overflow-hidden">

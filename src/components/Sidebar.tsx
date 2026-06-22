@@ -1,5 +1,6 @@
 import { LayoutDashboard, Package, Receipt, Cross, LogOut, RotateCcw, Truck, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
+import ThemeToggle from './ThemeToggle';
 
 type Page = 'dashboard' | 'inventory' | 'billing' | 'customer-returns' | 'wholeseller-returns';
 
@@ -97,14 +98,20 @@ export default function Sidebar({ currentPage, onNavigate, mobileOpen, onClose }
             </div>
           </div>
 
-          {/* Logout Button */}
-          <button
-            onClick={logout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 text-sm font-medium transition-colors"
-          >
-            <LogOut size={16} />
-            Logout
-          </button>
+          {/* Theme + Logout row */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-slate-800/50 border border-slate-700/50">
+              <ThemeToggle className="p-0 hover:bg-transparent text-slate-300 hover:text-white" />
+              <span className="text-xs text-slate-400">Theme</span>
+            </div>
+            <button
+              onClick={logout}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 text-sm font-medium transition-colors"
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-3 border-t border-slate-700/60">

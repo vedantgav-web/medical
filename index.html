@@ -10,6 +10,17 @@
     <meta name="twitter:image" content="https://bolt.new/static/og_default.png" />
   </head>
   <body>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (t === 'dark' || (!t && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
