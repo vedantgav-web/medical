@@ -122,10 +122,12 @@ export default function Inventory({ userId }: InventoryProps) {
 
   async function handleDeleteProduct(id: string) {
     const { error } = await supabase.from('products').delete().eq('id', id).eq('user_id', userId);
-    if (!error) {
-      await fetchProducts('initial');
-      setSelectedProduct(null);
+    if (error) {
+      alert('Failed to delete product: ' + error.message);
+      return;
     }
+    await fetchProducts('initial');
+    setSelectedProduct(null);
   }
 
   function handleSort(field: SortField) {

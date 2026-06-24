@@ -82,8 +82,7 @@ export default function Billing({ userId }: BillingProps) {
     if (mode === 'tablet' && product.sell_by_tablet && product.tablets_per_strip > 0) {
       return totalTabletsAvailable(product);
     }
-    // strip mode: a partial leftover strip also counts as a strip
-    return product.quantity + (product.loose_tablets && product.tablets_per_strip > 0 ? 1 : 0);
+    return product.quantity;
   }
 
   function effectiveTabletPrice(product: Product): number {
@@ -156,55 +155,68 @@ export default function Billing({ userId }: BillingProps) {
       if (itemsError) throw new Error(itemsError.message);
 
       // Deduct inventory with proper tablet tracking.
-      // Tablet sales: consume from loose_tablets first, then full strips when needed.
-      // Strip sales: consume quantity_sold strips directly.
+      // Re-fetch current stock for each product to avoid stale cart-snapshot bugs
+      // when the same product appears in multiple cart lines.
+      // Group cart lines by product id so we deduct once per product.
+      const linesByProduct = new Map<string, CartItem[]>();
       for (const item of cart) {
-        const p = item.product;
-        if (item.sellMode === 'tablet' && p.tablets_per_strip > 0 && p.sell_by_tablet) {
-          let remaining = item.quantity; // tablets to deduct
-          let loose = p.loose_tablets || 0;
-          let strips = p.quantity;
+        const arr = linesByProduct.get(item.product.id) ?? [];
+        arr.push(item);
+        linesByProduct.set(item.product.id, arr);
+      }
 
-          // 1) use up loose tablets first
-          if (loose > 0) {
-            const take = Math.min(loose, remaining);
-            loose -= take;
-            remaining -= take;
-          }
-          // 2) consume whole strips for the rest
-          if (remaining > 0) {
-            const stripsNeeded = Math.ceil(remaining / p.tablets_per_strip);
-            strips = Math.max(0, strips - stripsNeeded);
-            const tabletsFromStrips = stripsNeeded * p.tablets_per_strip;
-            const leftover = tabletsFromStrips - remaining; // tablets left from newly broken strip(s)
-            loose = Math.max(0, leftover);
-            remaining = 0;
-          }
+      for (const [productId, lines] of linesByProduct) {
+        // Fetch fresh stock values
+        const { data: fresh } = await supabase
+          .from('products')
+          .select('quantity, loose_tablets, tablets_per_strip, sell_by_tablet')
+          .eq('id', productId)
+          .eq('user_id', userId)
+          .single();
 
-          const totalLeft = strips * p.tablets_per_strip + loose;
-          if (totalLeft <= 0) {
-            // all stock exhausted — remove product from inventory
-            await supabase.from('products').delete().eq('id', p.id).eq('user_id', userId);
+        if (!fresh) continue; // product may have been deleted already
+        let strips = (fresh as Pick<Product, 'quantity'>).quantity;
+        let loose = (fresh as Pick<Product, 'loose_tablets'>).loose_tablets || 0;
+        const tps = (fresh as Pick<Product, 'tablets_per_strip'>).tablets_per_strip || 0;
+        const canTablet = (fresh as Pick<Product, 'sell_by_tablet'>).sell_by_tablet && tps > 0;
+
+        for (const item of lines) {
+          if (item.sellMode === 'tablet' && canTablet) {
+            let remaining = item.quantity; // tablets to deduct
+            // 1) use up loose tablets first
+            if (loose > 0) {
+              const take = Math.min(loose, remaining);
+              loose -= take;
+              remaining -= take;
+            }
+            // 2) consume whole strips for the rest
+            if (remaining > 0) {
+              const stripsNeeded = Math.ceil(remaining / tps);
+              strips = Math.max(0, strips - stripsNeeded);
+              const tabletsFromStrips = stripsNeeded * tps;
+              loose = Math.max(0, tabletsFromStrips - remaining);
+              remaining = 0;
+            }
           } else {
-            await supabase
-              .from('products')
-              .update({ quantity: strips, loose_tablets: loose })
-              .eq('id', p.id)
-              .eq('user_id', userId);
+            // strip sale
+            strips = Math.max(0, strips - item.quantity);
+          }
+        }
+
+        const totalLeft = canTablet ? strips * tps + loose : strips;
+        if (totalLeft <= 0) {
+          // all stock exhausted — remove product from inventory
+          const { error: delErr } = await supabase.from('products').delete().eq('id', productId).eq('user_id', userId);
+          if (delErr) {
+            // FK may block if constraint not updated; fall back to zeroing stock
+            await supabase.from('products').update({ quantity: 0, loose_tablets: 0 }).eq('id', productId).eq('user_id', userId);
           }
         } else {
-          // strip sale
-          const newQty = Math.max(0, p.quantity - item.quantity);
-          const totalLeft = newQty * (p.tablets_per_strip > 0 ? p.tablets_per_strip : 1) + (p.loose_tablets || 0);
-          if (totalLeft <= 0) {
-            await supabase.from('products').delete().eq('id', p.id).eq('user_id', userId);
-          } else {
-            await supabase
-              .from('products')
-              .update({ quantity: newQty })
-              .eq('id', p.id)
-              .eq('user_id', userId);
-          }
+          await supabase
+            .from('products')
+            .update({ quantity: strips, loose_tablets: loose })
+            .eq('id', productId)
+            .eq('user_id', userId);
         }
       }
 
