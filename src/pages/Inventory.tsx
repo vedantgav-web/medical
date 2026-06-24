@@ -370,7 +370,7 @@ export default function Inventory({ userId }: InventoryProps) {
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm h-full flex flex-col">
-            <div className="overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+            <div className="overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 220px)' }}>
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-50 border-b border-gray-100">

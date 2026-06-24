@@ -12,7 +12,7 @@ const emptyForm: ProductInsert = {
   specifications: '',
   batch_number: '',
   quantity: 0,
-  min_threshold: 10,
+  min_threshold: 0,
   single_price: 0,
   expiry_date: null,
   drawer_number: '',
@@ -129,7 +129,7 @@ export default function AddProductModal({ onClose, onSave }: AddProductModalProp
               <input
                 type="number"
                 min={0}
-                value={form.quantity}
+                value={form.quantity || ''}
                 onChange={e => set('quantity', parseInt(e.target.value) || 0)}
                 className={`w-full px-3.5 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors ${errors.quantity ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}
               />
@@ -141,7 +141,7 @@ export default function AddProductModal({ onClose, onSave }: AddProductModalProp
               <input
                 type="number"
                 min={0}
-                value={form.min_threshold}
+                value={form.min_threshold || ''}
                 onChange={e => set('min_threshold', parseInt(e.target.value) || 0)}
                 className={`w-full px-3.5 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors ${errors.min_threshold ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}
               />
@@ -154,7 +154,7 @@ export default function AddProductModal({ onClose, onSave }: AddProductModalProp
                 type="number"
                 min={0}
                 step="0.01"
-                value={form.single_price}
+                value={form.single_price || ''}
                 onChange={e => set('single_price', parseFloat(e.target.value) || 0)}
                 className={`w-full px-3.5 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors ${errors.single_price ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}
               />
@@ -177,7 +177,7 @@ export default function AddProductModal({ onClose, onSave }: AddProductModalProp
                   <input
                     type="number"
                     min={0}
-                    value={form.tablets_per_strip}
+                    value={form.tablets_per_strip || ''}
                     onChange={e => set('tablets_per_strip', parseInt(e.target.value) || 0)}
                     placeholder="e.g. 10"
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors"
@@ -189,7 +189,7 @@ export default function AddProductModal({ onClose, onSave }: AddProductModalProp
                     type="number"
                     min={0}
                     step="0.01"
-                    value={form.tablet_price}
+                    value={form.tablet_price || ''}
                     onChange={e => set('tablet_price', parseFloat(e.target.value) || 0)}
                     placeholder="0 = derived from strip"
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors"

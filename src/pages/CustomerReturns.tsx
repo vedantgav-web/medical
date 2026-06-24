@@ -18,12 +18,12 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
   const [productId, setProductId] = useState('');
   const [productName, setProductName] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<number | ''>('');
   const [returnType, setReturnType] = useState<'refund' | 'exchange'>('refund');
-  const [refundAmount, setRefundAmount] = useState(0);
+  const [refundAmount, setRefundAmount] = useState<number | ''>('');
   const [exchangeProductId, setExchangeProductId] = useState('');
   const [exchangeProductName, setExchangeProductName] = useState('');
-  const [exchangeQuantity, setExchangeQuantity] = useState(1);
+  const [exchangeQuantity, setExchangeQuantity] = useState<number | ''>('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [reason, setReason] = useState('');
@@ -83,12 +83,12 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
     setProductId('');
     setProductName('');
     setBatchNumber('');
-    setQuantity(1);
+    setQuantity('');
     setReturnType('refund');
-    setRefundAmount(0);
+    setRefundAmount('');
     setExchangeProductId('');
     setExchangeProductName('');
-    setExchangeQuantity(1);
+    setExchangeQuantity('');
     setCustomerName('');
     setCustomerPhone('');
     setReason('');
@@ -99,7 +99,7 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!productId || !productName) return;
+    if (!productId || !productName || quantity === '' || quantity <= 0) return;
     setSaving(true);
 
     try {
@@ -108,12 +108,12 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
         product_id: productId,
         product_name: productName,
         batch_number: batchNumber,
-        quantity,
+        quantity: quantity as number,
         return_type: returnType,
         refund_amount: returnType === 'refund' ? refundAmount : 0,
         exchange_product_id: returnType === 'exchange' ? exchangeProductId || null : null,
         exchange_product_name: returnType === 'exchange' ? exchangeProductName : '',
-        exchange_quantity: returnType === 'exchange' ? exchangeQuantity : 0,
+        exchange_quantity: returnType === 'exchange' ? (exchangeQuantity === '' ? 0 : exchangeQuantity) : 0,
         customer_name: customerName,
         customer_phone: customerPhone,
         reason,
@@ -126,24 +126,42 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
       const returnedProduct = products.find(p => p.id === productId);
       if (returnedProduct) {
         if (isExpiredReturn) {
-          // Expired return: create a new product row with batch "Returned"
-          await supabase.from('products').insert([{
-            user_id: userId,
-            name: returnedProduct.name,
-            specifications: returnedProduct.specifications,
-            batch_number: 'Returned',
-            quantity: quantity,
-            min_threshold: returnedProduct.min_threshold,
-            single_price: returnedProduct.single_price,
-            expiry_date: null,
-            drawer_number: returnedProduct.drawer_number,
-            status: 'Expired',
-          }]);
+          // Expired return: add the returned quantity to an existing expired batch of the same medicine
+          const { data: existingExpired } = await supabase
+            .from('products')
+            .select('id, quantity')
+            .eq('user_id', userId)
+            .eq('name', returnedProduct.name)
+            .eq('status', 'Expired')
+            .limit(1);
+
+          if (existingExpired && existingExpired.length > 0) {
+            // Add quantity to the existing expired product
+            await supabase
+              .from('products')
+              .update({ quantity: existingExpired[0].quantity + quantity })
+              .eq('id', existingExpired[0].id)
+              .eq('user_id', userId);
+          } else {
+            // No existing expired batch — create a new expired product row
+            await supabase.from('products').insert([{
+              user_id: userId,
+              name: returnedProduct.name,
+              specifications: returnedProduct.specifications,
+              batch_number: 'Returned',
+              quantity: quantity as number,
+              min_threshold: returnedProduct.min_threshold,
+              single_price: returnedProduct.single_price,
+              expiry_date: null,
+              drawer_number: returnedProduct.drawer_number,
+              status: 'Expired',
+            }]);
+          }
         } else {
           // Normal return: add quantity back to existing product
           await supabase
             .from('products')
-            .update({ quantity: returnedProduct.quantity + quantity })
+            .update({ quantity: returnedProduct.quantity + (quantity as number) })
             .eq('id', productId)
             .eq('user_id', userId);
         }
@@ -155,7 +173,7 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
         if (exProduct) {
           await supabase
             .from('products')
-            .update({ quantity: Math.max(0, exProduct.quantity - exchangeQuantity) })
+            .update({ quantity: Math.max(0, exProduct.quantity - (exchangeQuantity === '' ? 0 : exchangeQuantity)) })
             .eq('id', exchangeProductId)
             .eq('user_id', userId);
         }
@@ -352,8 +370,8 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
                     <p className="text-sm font-semibold text-gray-800">Expired Product Return</p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {isExpiredReturn
-                        ? 'A new product row will be created with batch "Returned" and status "Expired" instead of adding quantity to the existing product.'
-                        : 'Check this if the returned product is expired. It will be tracked as a separate batch with status "Expired".'}
+                        ? 'Returned quantity will be added to an existing expired batch of the same medicine, or a new expired batch will be created if none exists.'
+                        : 'Check this if the returned product is expired. It will be tracked as a separate expired batch instead of adding to the current stock.'}
                     </p>
                   </div>
                 </label>
@@ -363,13 +381,13 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Quantity *</label>
-                  <input type="number" min={1} value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  <input type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
                 </div>
                 {returnType === 'refund' && (
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Refund Amount (₹)</label>
-                    <input type="number" min={0} step="0.01" value={refundAmount} onChange={e => setRefundAmount(parseFloat(e.target.value) || 0)}
+                    <input type="number" min={0} step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
                       className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
                   </div>
                 )}
@@ -410,7 +428,7 @@ export default function CustomerReturns({ userId }: CustomerReturnsProps) {
                   {exchangeProductName && (
                     <div className="mt-2">
                       <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Exchange Quantity</label>
-                      <input type="number" min={1} value={exchangeQuantity} onChange={e => setExchangeQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      <input type="number" min={1} value={exchangeQuantity} onChange={e => setExchangeQuantity(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
                         className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
                     </div>
                   )}

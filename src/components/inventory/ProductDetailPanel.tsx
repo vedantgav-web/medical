@@ -10,7 +10,7 @@ interface ProductDetailPanelProps {
 }
 
 export default function ProductDetailPanel({ product, onClose, onUpdate, onDelete }: ProductDetailPanelProps) {
-  const [qtyChange, setQtyChange] = useState(1);
+  const [qtyChange, setQtyChange] = useState<number | ''>('');
   const [newPrice, setNewPrice] = useState(product.single_price);
   const [editingPrice, setEditingPrice] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,15 +24,19 @@ export default function ProductDetailPanel({ product, onClose, onUpdate, onDelet
     : (product.tablets_per_strip > 0 ? product.single_price / product.tablets_per_strip : 0);
 
   async function handleQtyIncrease() {
+    if (qtyChange === '' || qtyChange === 0) return;
     setLoading(true);
     await onUpdate(product.id, { quantity: product.quantity + qtyChange });
+    setQtyChange('');
     setLoading(false);
   }
 
   async function handleQtyDecrease() {
+    if (qtyChange === '' || qtyChange === 0) return;
     const next = Math.max(0, product.quantity - qtyChange);
     setLoading(true);
     await onUpdate(product.id, { quantity: next });
+    setQtyChange('');
     setLoading(false);
   }
 
@@ -127,7 +131,7 @@ export default function ProductDetailPanel({ product, onClose, onUpdate, onDelet
                 type="number"
                 min={1}
                 value={qtyChange}
-                onChange={e => setQtyChange(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={e => setQtyChange(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
                 className="w-20 px-3 py-2 rounded-lg border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
               />
               <button

@@ -18,10 +18,10 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
   const [productId, setProductId] = useState('');
   const [productName, setProductName] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<number | ''>('');
   const [wholesellerName, setWholesellerName] = useState('');
   const [reason, setReason] = useState('');
-  const [refundAmount, setRefundAmount] = useState(0);
+  const [refundAmount, setRefundAmount] = useState<number | ''>('');
   const [saving, setSaving] = useState(false);
   const [productSearch, setProductSearch] = useState('');
 
@@ -66,16 +66,16 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
     setProductId('');
     setProductName('');
     setBatchNumber('');
-    setQuantity(1);
+    setQuantity('');
     setWholesellerName('');
     setReason('');
-    setRefundAmount(0);
+    setRefundAmount('');
     setProductSearch('');
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!productId || !productName) return;
+    if (!productId || !productName || quantity === '' || quantity <= 0) return;
     setSaving(true);
 
     try {
@@ -84,10 +84,10 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
         product_id: productId,
         product_name: productName,
         batch_number: batchNumber,
-        quantity,
+        quantity: quantity as number,
         wholeseller_name: wholesellerName,
         reason: reason || 'Expired product',
-        refund_amount: refundAmount,
+        refund_amount: refundAmount === '' ? 0 : refundAmount,
         status: 'pending',
       };
 
@@ -97,7 +97,7 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
       // Deduct from inventory (product returned to wholeseller)
       const product = products.find(p => p.id === productId);
       if (product) {
-        const newQty = Math.max(0, product.quantity - quantity);
+        const newQty = Math.max(0, product.quantity - (quantity as number));
         await supabase
           .from('products')
           .update({ quantity: newQty })
@@ -276,12 +276,12 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Quantity *</label>
-                  <input type="number" min={1} value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  <input type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Expected Refund (₹)</label>
-                  <input type="number" min={0} step="0.01" value={refundAmount} onChange={e => setRefundAmount(parseFloat(e.target.value) || 0)}
+                  <input type="number" min={0} step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
                 </div>
               </div>

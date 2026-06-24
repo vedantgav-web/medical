@@ -19,6 +19,8 @@ interface PaymentBreakdown {
 interface DashboardStats {
   totalSales: number;
   totalBills: number;
+  todaySales: number;
+  todayBills: number;
   lowStock: Product[];
   topProducts: TopProduct[];
   recentBills: Bill[];
@@ -34,6 +36,8 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats>({
     totalSales: 0,
     totalBills: 0,
+    todaySales: 0,
+    todayBills: 0,
     lowStock: [],
     topProducts: [],
     recentBills: [],
@@ -59,6 +63,11 @@ export default function Dashboard({ userId }: DashboardProps) {
 
       const totalSales = bills.reduce((s, b) => s + b.total_amount, 0);
       const totalBills = bills.length;
+
+      // Today's stats
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayBills = bills.filter(b => b.created_at.startsWith(todayStr));
+      const todaySales = todayBills.reduce((s, b) => s + b.total_amount, 0);
 
       const lowStock = products.filter(p => p.quantity <= p.min_threshold);
 
@@ -111,6 +120,8 @@ export default function Dashboard({ userId }: DashboardProps) {
       setStats({
         totalSales,
         totalBills,
+        todaySales,
+        todayBills: todayBills.length,
         lowStock,
         topProducts,
         recentBills: bills.slice(0, 10),
@@ -168,6 +179,24 @@ export default function Dashboard({ userId }: DashboardProps) {
       <div>
         <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-sm text-gray-500 mt-0.5">Overview of your store performance</p>
+      </div>
+
+      {/* Today's KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <StatCard
+          label="Today's Sales"
+          value={`₹${stats.todaySales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+          icon={<TrendingUp size={20} className="text-emerald-500" />}
+          color="emerald"
+          sub={new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+        />
+        <StatCard
+          label="Today's Bills"
+          value={String(stats.todayBills)}
+          icon={<Receipt size={20} className="text-cyan-500" />}
+          color="cyan"
+          sub="Bills generated today"
+        />
       </div>
 
       {/* KPI Cards */}
@@ -449,13 +478,13 @@ interface StatCardProps {
   label: string;
   value: string;
   icon: React.ReactNode;
-  color: 'teal' | 'blue' | 'amber' | 'emerald';
+  color: 'teal' | 'blue' | 'amber' | 'emerald' | 'cyan';
   sub: string;
   truncate?: boolean;
 }
 
 function StatCard({ label, value, icon, color, sub, truncate }: StatCardProps) {
-  const bgMap = { teal: 'bg-teal-50', blue: 'bg-blue-50', amber: 'bg-amber-50', emerald: 'bg-emerald-50' };
+  const bgMap = { teal: 'bg-teal-50', blue: 'bg-blue-50', amber: 'bg-amber-50', emerald: 'bg-emerald-50', cyan: 'bg-cyan-50' };
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
       <div className="flex items-start justify-between mb-3">
