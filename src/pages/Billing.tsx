@@ -55,6 +55,8 @@ export default function Billing({ userId }: BillingProps) {
     : [];
 
   function addToCart(product: Product, mode: 'strip' | 'tablet') {
+    // Don't allow adding strips when no full strips remain (only loose tablets left)
+    if (mode === 'strip' && product.quantity <= 0) return;
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id && item.sellMode === mode);
       if (existing) {
@@ -355,12 +357,18 @@ export default function Billing({ userId }: BillingProps) {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => addToCart(product, 'strip')}
-                              className="flex-1 py-1.5 rounded-lg bg-gray-100 hover:bg-teal-100 text-gray-700 hover:text-teal-700 text-xs font-semibold transition-colors"
-                            >
-                              + Add Strip
-                            </button>
+                            {product.quantity > 0 ? (
+                              <button
+                                onClick={() => addToCart(product, 'strip')}
+                                className="flex-1 py-1.5 rounded-lg bg-gray-100 hover:bg-teal-100 text-gray-700 hover:text-teal-700 text-xs font-semibold transition-colors"
+                              >
+                                + Add Strip
+                              </button>
+                            ) : (
+                              <div className="flex-1 py-1.5 rounded-lg bg-amber-50 text-amber-600 text-xs font-semibold text-center">
+                                Loose tablets only
+                              </div>
+                            )}
                             {canTablet && (
                               <button
                                 onClick={() => addToCart(product, 'tablet')}
