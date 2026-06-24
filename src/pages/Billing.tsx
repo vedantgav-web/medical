@@ -58,11 +58,21 @@ export default function Billing({ userId }: BillingProps) {
     // Don't allow adding strips when no full strips remain (only loose tablets left)
     if (mode === 'strip' && product.quantity <= 0) return;
     setCart(prev => {
+      const tps = product.tablets_per_strip > 0 ? product.tablets_per_strip : 1;
+      const total = totalTabletsAvailable(product);
       const existing = prev.find(item => item.product.id === product.id && item.sellMode === mode);
+      // reserved = tablets already in cart from the OTHER mode
+      const reserved = prev.reduce((sum, item) => {
+        if (item.product.id !== product.id || item.sellMode === mode) return sum;
+        return sum + (item.sellMode === 'tablet' ? item.quantity : item.quantity * tps);
+      }, 0);
+      const remainingTablets = Math.max(0, total - reserved);
+      const max = mode === 'tablet' ? remainingTablets : Math.floor(remainingTablets / tps);
+      if (max <= 0) return prev; // no stock available for this mode
       if (existing) {
         return prev.map(item =>
           item.product.id === product.id && item.sellMode === mode
-            ? { ...item, quantity: Math.min(item.quantity + 1, maxAvailable(item.product, mode)) }
+            ? { ...item, quantity: Math.min(item.quantity + 1, max) }
             : item
         );
       }
@@ -80,11 +90,29 @@ export default function Billing({ userId }: BillingProps) {
     return product.quantity;
   }
 
+  // Tablets already reserved in the cart for a product (across both strip + tablet lines)
+  function tabletsInCart(product: Product, excludeMode?: 'strip' | 'tablet'): number {
+    const tps = product.tablets_per_strip > 0 ? product.tablets_per_strip : 1;
+    return cart.reduce((sum, item) => {
+      if (item.product.id !== product.id) return sum;
+      if (excludeMode && item.sellMode === excludeMode) return sum;
+      return sum + (item.sellMode === 'tablet' ? item.quantity : item.quantity * tps);
+    }, 0);
+  }
+
+  // Remaining tablets available for a given mode, accounting for cart reservations
+  function remainingForMode(product: Product, mode: 'strip' | 'tablet'): number {
+    const total = totalTabletsAvailable(product);
+    const reserved = tabletsInCart(product, mode); // exclude current line's mode
+    const remainingTablets = Math.max(0, total - reserved);
+    if (mode === 'tablet') return remainingTablets;
+    // strip mode: full strips only
+    const tps = product.tablets_per_strip > 0 ? product.tablets_per_strip : 1;
+    return Math.floor(remainingTablets / tps);
+  }
+
   function maxAvailable(product: Product, mode: 'strip' | 'tablet'): number {
-    if (mode === 'tablet' && product.sell_by_tablet && product.tablets_per_strip > 0) {
-      return totalTabletsAvailable(product);
-    }
-    return product.quantity;
+    return remainingForMode(product, mode);
   }
 
   function effectiveTabletPrice(product: Product): number {
@@ -96,7 +124,15 @@ export default function Billing({ userId }: BillingProps) {
   function updateQty(productId: string, mode: 'strip' | 'tablet', qty: number) {
     setCart(prev => prev.map(item => {
       if (item.product.id !== productId || item.sellMode !== mode) return item;
-      const max = maxAvailable(item.product, mode);
+      // Compute max using prev (latest cart state) so strip+tablet share the pool
+      const tps = item.product.tablets_per_strip > 0 ? item.product.tablets_per_strip : 1;
+      const total = totalTabletsAvailable(item.product);
+      const reserved = prev.reduce((sum, other) => {
+        if (other.product.id !== productId || other.sellMode === mode) return sum;
+        return sum + (other.sellMode === 'tablet' ? other.quantity : other.quantity * tps);
+      }, 0);
+      const remainingTablets = Math.max(0, total - reserved);
+      const max = mode === 'tablet' ? remainingTablets : Math.floor(remainingTablets / tps);
       const clamped = Math.max(1, Math.min(qty, max));
       return { ...item, quantity: clamped };
     }));
