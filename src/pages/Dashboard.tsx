@@ -258,7 +258,7 @@ export default function Dashboard({ userId }: DashboardProps) {
           </div>
 
           {/* Summary Cards */}
-          <div className="px-5 py-3 grid grid-cols-3 gap-3 bg-gray-50/50">
+          <div className="px-5 py-3 grid grid-cols-3 gap-3 bg-white/5">
             <div className="text-center">
               <p className="text-lg font-bold text-gray-900">₹{periodSales.toLocaleString('en-IN', { minimumFractionDigits: 0 })}</p>
               <p className="text-xs text-gray-500">Period Sales</p>
