@@ -36,14 +36,30 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
     setLoading(false);
   }, [userId]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Dynamic automatic calculation of refund amount when user manually updates quantity
+  useEffect(() => {
+    if (productId && quantity !== '') {
+      const currentProduct = products.find(p => p.id === productId);
+      if (currentProduct) {
+        setRefundAmount(currentProduct.single_price * (quantity as number));
+      }
+    } else if (quantity === '') {
+      setRefundAmount('');
+    }
+  }, [quantity, productId, products]);
 
   const filteredReturns = returns.filter(r => {
     const q = search.toLowerCase();
-    return r.product_name.toLowerCase().includes(q) ||
+    return (
+      r.product_name.toLowerCase().includes(q) ||
       r.wholeseller_name.toLowerCase().includes(q) ||
       r.batch_number.toLowerCase().includes(q) ||
-      r.status.toLowerCase().includes(q);
+      r.status.toLowerCase().includes(q)
+    );
   });
 
   // Only show expired products for wholeseller return
@@ -57,8 +73,8 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
     setProductId(p.id);
     setProductName(p.name);
     setBatchNumber(p.batch_number);
-    setRefundAmount(p.single_price * p.quantity);
     setQuantity(p.quantity);
+    setRefundAmount(p.single_price * p.quantity);
     setProductSearch('');
   }
 
@@ -165,7 +181,9 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
         {filteredReturns.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Truck size={48} className="text-gray-300 mb-3" />
-            <p className="text-gray-500 font-medium">{search ? 'No returns match your search' : 'No wholeseller returns yet'}</p>
+            <p className="text-gray-500 font-medium">
+              {search ? 'No returns match your search' : 'No wholeseller returns yet'}
+            </p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -205,8 +223,10 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
                       </td>
                       <td className="px-4 py-3">
                         {ret.status === 'pending' && (
-                          <button onClick={() => markComplete(ret)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-semibold hover:bg-emerald-100 transition-colors">
+                          <button
+                            onClick={() => markComplete(ret)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+                          >
                             Mark Done
                           </button>
                         )}
@@ -222,7 +242,7 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
 
       {/* New Return Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => { setShowModal(false); resetForm(); }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <div>
@@ -247,14 +267,22 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
                   </div>
                 ) : (
                   <div className="relative">
-                    <input type="text" value={productSearch} onChange={e => setProductSearch(e.target.value)}
+                    <input
+                      type="text"
+                      value={productSearch}
+                      onChange={e => setProductSearch(e.target.value)}
                       placeholder="Search expired products..."
-                      className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                    />
                     {productSearch && expiredProducts.length > 0 && (
                       <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-xl max-h-48 overflow-y-auto">
                         {expiredProducts.map(p => (
-                          <button key={p.id} type="button" onClick={() => selectProduct(p)}
-                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-red-50 text-left text-sm border-b border-gray-50 last:border-0">
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => selectProduct(p)}
+                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-red-50 text-left text-sm border-b border-gray-50 last:border-0"
+                          >
                             <div>
                               <p className="font-medium text-gray-800">{p.name}</p>
                               <p className="text-xs text-red-400">Expired · Batch: {p.batch_number} · Qty: {p.quantity}</p>
@@ -276,33 +304,62 @@ export default function WholesellerReturns({ userId }: WholesellerReturnsProps) 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Quantity *</label>
-                  <input type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
+                  <input
+                    type="number"
+                    min={1}
+                    value={quantity}
+                    onChange={e => setQuantity(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Expected Refund (₹)</label>
-                  <input type="number" min={0} step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={refundAmount}
+                    onChange={e => setRefundAmount(e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Wholeseller Name</label>
-                <input type="text" value={wholesellerName} onChange={e => setWholesellerName(e.target.value)} placeholder="Wholeseller / supplier name"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
+                <input
+                  type="text"
+                  value={wholesellerName}
+                  onChange={e => setWholesellerName(e.target.value)}
+                  placeholder="Wholeseller / supplier name"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Reason</label>
-                <textarea rows={2} value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for return (e.g. Expired product)"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 resize-none" />
+                <textarea
+                  rows={2}
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                  placeholder="Reason for return (e.g. Expired product)"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 resize-none"
+                />
               </div>
 
               <div className="flex gap-3 pt-2 border-t border-gray-100">
-                <button type="button" onClick={() => { setShowModal(false); resetForm(); }}
-                  className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
-                <button type="submit" disabled={saving || !productId}
-                  className="flex-1 px-4 py-2.5 rounded-lg bg-teal-500 text-white text-sm font-semibold hover:bg-teal-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                <button
+                  type="button"
+                  onClick={() => { setShowModal(false); resetForm(); }}
+                  className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || !productId}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-teal-500 text-white text-sm font-semibold hover:bg-teal-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                >
                   <Truck size={16} />
                   {saving ? 'Processing...' : 'Submit Return'}
                 </button>
