@@ -99,7 +99,6 @@ export default function Inventory({ userId }: InventoryProps) {
     else setLoadingMore(false);
   }, [userId, search, products.length]);
 
-  // Refetch when search changes (debounced via timeout)
   useEffect(() => {
     const t = setTimeout(() => fetchProducts('initial'), 300);
     return () => clearTimeout(t);
@@ -203,20 +202,18 @@ export default function Inventory({ userId }: InventoryProps) {
     return sortDir === 'asc' ? <ArrowUp size={13} className="text-teal-500" /> : <ArrowDown size={13} className="text-teal-500" />;
   }
 
-  const refreshSelected = () => {
+  useEffect(() => {
     if (selectedProduct) {
       const updated = products.find(p => p.id === selectedProduct.id);
       if (updated) setSelectedProduct(updated);
     }
-  };
-
-  useEffect(() => { refreshSelected(); }, [products]);
+  }, [products]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-gray-50">
       {/* Page Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Inventory</h1>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -225,54 +222,59 @@ export default function Inventory({ userId }: InventoryProps) {
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-teal-500 text-white rounded-xl text-sm font-semibold hover:bg-teal-600 active:scale-95 transition-all shadow-sm"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 text-white rounded-xl text-sm font-semibold hover:bg-teal-600 active:scale-95 transition-all shadow-sm w-full sm:w-auto"
           >
             <Plus size={16} /> Add Product
           </button>
         </div>
 
-        {/* Search and Filter Toggle */}
-        <div className="mt-4 flex gap-3">
+        {/* Search and Filter Actions Container */}
+        <div className="mt-4 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, specifications, batch, drawer, price..."
+              placeholder="Search items..."
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors"
             />
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
-              hasActiveFilters
-                ? 'bg-teal-50 border-teal-300 text-teal-700'
-                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <Filter size={16} />
-            Filters
-            {hasActiveFilters && (
-              <span className="ml-1 w-5 h-5 rounded-full bg-teal-500 text-white text-xs flex items-center justify-center">
-                {[filters.price, filters.quantity, filters.expiry, filters.status].filter(Boolean).length}
-              </span>
-            )}
-          </button>
-          {hasActiveFilters && (
+          
+          {/* Grouping filter triggers horizontally to avoid vanishing off-screen */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
-              onClick={clearFilters}
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-colors"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+                hasActiveFilters
+                  ? 'bg-teal-50 border-teal-300 text-teal-700'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
             >
-              <X size={14} />
-              Clear
+              <Filter size={16} />
+              <span>Filters</span>
+              {hasActiveFilters && (
+                <span className="ml-1 w-5 h-5 rounded-full bg-teal-500 text-white text-xs flex items-center justify-center shrink-0">
+                  {[filters.price, filters.quantity, filters.expiry, filters.status].filter(Boolean).length}
+                </span>
+              )}
             </button>
-          )}
+            
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-colors"
+              >
+                <X size={14} />
+                <span className="hidden sm:inline">Clear</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Filter Panel */}
+        {/* Filter Selection Panel Grid */}
         {showFilters && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-h-[300px] sm:max-h-none overflow-y-auto">
             {/* Price Filter */}
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Price Range</p>
@@ -356,8 +358,8 @@ export default function Inventory({ userId }: InventoryProps) {
         )}
       </div>
 
-      {/* Table with internal scroll and max 10 rows visible */}
-      <div className="flex-1 overflow-hidden px-6 py-4">
+      {/* Table Section Wrap */}
+      <div className="flex-1 overflow-hidden px-4 sm:px-6 py-4">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
@@ -365,15 +367,17 @@ export default function Inventory({ userId }: InventoryProps) {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Package size={48} className="text-gray-300 mb-3" />
-            <p className="text-gray-500 font-medium">{search || hasActiveFilters ? 'No products match your criteria' : 'No products yet'}</p>
+            <p className="text-gray-500 font-medium">{search || hasActiveFilters ? 'No products match criteria' : 'No products yet'}</p>
             {!search && !hasActiveFilters && <p className="text-gray-400 text-sm mt-1">Click "Add Product" to get started</p>}
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm h-full flex flex-col">
-            <div className="overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 220px)' }}>
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-gray-50 border-b border-gray-100">
+            
+            {/* Essential Fix: This wrapper ensures table scrolls sideways on low screen widths instead of crushing layout columns */}
+            <div className="overflow-x-auto overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+              <table className="w-full text-sm min-w-[600px] sm:min-w-full">
+                <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgba(243,244,246,1)]">
+                  <tr>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       <button onClick={() => handleSort('name')} className="flex items-center gap-1.5 hover:text-gray-800 transition-colors">
                         Name <SortIcon field="name" />
@@ -400,7 +404,7 @@ export default function Inventory({ userId }: InventoryProps) {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-50 bg-white">
                   {filtered.map(product => {
                     const isLow = product.quantity <= product.min_threshold;
                     const isExpired = product.status === 'Expired';
@@ -413,7 +417,7 @@ export default function Inventory({ userId }: InventoryProps) {
                         <td className="px-4 py-3">
                           <div className="font-medium text-gray-900 group-hover:text-teal-700 transition-colors">{product.name}</div>
                           {product.specifications && (
-                            <div className="text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{product.specifications}</div>
+                            <div className="text-xs text-gray-400 mt-0.5 truncate max-w-[140px] sm:max-w-[180px]">{product.specifications}</div>
                           )}
                         </td>
                         <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{product.batch_number || '—'}</td>
@@ -424,28 +428,28 @@ export default function Inventory({ userId }: InventoryProps) {
                             const canTablet = product.sell_by_tablet && tps > 0;
                             return (
                               <div className="flex flex-col">
-                                <span className={`font-semibold ${isLow ? 'text-amber-600' : 'text-gray-800'}`}>
+                                <span className={`font-semibold whitespace-nowrap ${isLow ? 'text-amber-600' : 'text-gray-800'}`}>
                                   {strips} {strips === 1 ? 'strip' : 'strips'}
                                   {isLow && <AlertTriangle size={12} className="inline ml-1 text-amber-500" />}
                                 </span>
                                 {canTablet && (
-                                  <span className="text-xs text-gray-400">
-                                    = {strips * tps} tablets
+                                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                                    = {strips * tps} tabs
                                   </span>
                                 )}
                               </div>
                             );
                           })()}
                         </td>
-                        <td className="px-4 py-3 font-medium text-gray-800">₹{product.single_price.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">₹{(product.total_price ?? 0).toFixed(2)}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">₹{product.single_price.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-gray-600 hidden lg:table-cell whitespace-nowrap">₹{(product.total_price ?? 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <span className={isExpired ? 'text-red-600 font-medium' : 'text-gray-600'}>
                             {product.expiry_date || '—'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{product.drawer_number || '—'}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
                             isExpired ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
                           }`}>
@@ -460,8 +464,9 @@ export default function Inventory({ userId }: InventoryProps) {
               </table>
             </div>
 
+            {/* Pagination / Load More section footer */}
             {hasMore && (
-              <div className="flex justify-center py-4 border-t border-gray-50">
+              <div className="flex justify-center py-4 border-t border-gray-50 bg-white">
                 <button
                   onClick={loadMore}
                   disabled={loadingMore}
