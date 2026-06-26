@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Search, ArrowUpDown, ArrowUp, ArrowDown, Package, AlertTriangle, X, Filter, PlusCircle } from 'lucide-react';
+import { Plus, Search, ArrowUpDown, ArrowUp, ArrowDown, Package, AlertTriangle, X, Filter, PlusCircle, Layers, CreditCard, LayoutGrid } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Product, ProductInsert, ProductUpdate } from '../lib/types';
 import AddProductModal from '../components/inventory/AddProductModal';
@@ -211,50 +211,49 @@ export default function Inventory({ userId }: InventoryProps) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-gray-50">
-      {/* Page Header */}
+      {/* Page Header - Fully optimized for 350px-400px screens */}
       <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center justify-between gap-2">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Inventory</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {loading ? 'Loading…' : `${filtered.length} shown${totalCount != null ? ` of ${totalCount}` : ''}${search ? ` for "${search}"` : ''}`}
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+              {loading ? 'Loading…' : `${filtered.length} shown${totalCount != null ? ` of ${totalCount}` : ''}`}
             </p>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 text-white rounded-xl text-sm font-semibold hover:bg-teal-600 active:scale-95 transition-all shadow-sm w-full sm:w-auto"
+            className="flex items-center gap-1.5 px-3 py-2 bg-teal-500 text-white rounded-xl text-xs sm:text-sm font-semibold hover:bg-teal-600 active:scale-95 transition-all shadow-sm"
           >
-            <Plus size={16} /> Add Product
+            <Plus size={15} /> <span>Add Product</span>
           </button>
         </div>
 
-        {/* Search and Filter Actions Container */}
-        <div className="mt-4 flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        {/* Action Controls - Split neatly on mobile viewports */}
+        <div className="mt-4 flex flex-col sm:flex-row gap-2">
+          <div className="relative w-full">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search items..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors"
+              placeholder="Search components, drawer..."
+              className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
             />
           </div>
           
-          {/* Grouping filter triggers horizontally to avoid vanishing off-screen */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
                 hasActiveFilters
                   ? 'bg-teal-50 border-teal-300 text-teal-700'
                   : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >
-              <Filter size={16} />
+              <Filter size={14} />
               <span>Filters</span>
               {hasActiveFilters && (
-                <span className="ml-1 w-5 h-5 rounded-full bg-teal-500 text-white text-xs flex items-center justify-center shrink-0">
+                <span className="ml-1 w-4 h-4 rounded-full bg-teal-500 text-white text-[10px] flex items-center justify-center shrink-0">
                   {[filters.price, filters.quantity, filters.expiry, filters.status].filter(Boolean).length}
                 </span>
               )}
@@ -263,30 +262,28 @@ export default function Inventory({ userId }: InventoryProps) {
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-colors"
+                className="flex items-center justify-center gap-1 px-2.5 py-2 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors"
               >
                 <X size={14} />
-                <span className="hidden sm:inline">Clear</span>
+                <span>Clear</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Filter Selection Panel Grid */}
+        {/* Mobile-Friendly Grid-based Filter Selector */}
         {showFilters && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-h-[300px] sm:max-h-none overflow-y-auto">
+          <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-h-[220px] sm:max-h-none overflow-y-auto">
             {/* Price Filter */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Price Range</p>
-              <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Price</p>
+              <div className="space-y-1">
                 {PRICE_FILTERS.map(f => (
                   <button
                     key={f.value}
                     onClick={() => updateFilter('price', f.value)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                      filters.price === f.value
-                        ? 'bg-teal-500 text-white font-medium'
-                        : 'bg-white border border-gray-200 text-gray-700 hover:border-teal-300 hover:text-teal-600'
+                    className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-all ${
+                      filters.price === f.value ? 'bg-teal-500 text-white font-medium' : 'bg-white border border-gray-200 text-gray-600'
                     }`}
                   >
                     {f.label}
@@ -297,16 +294,14 @@ export default function Inventory({ userId }: InventoryProps) {
 
             {/* Quantity Filter */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Quantity Range</p>
-              <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Quantity</p>
+              <div className="space-y-1">
                 {QUANTITY_FILTERS.map(f => (
                   <button
                     key={f.value}
                     onClick={() => updateFilter('quantity', f.value)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                      filters.quantity === f.value
-                        ? 'bg-teal-500 text-white font-medium'
-                        : 'bg-white border border-gray-200 text-gray-700 hover:border-teal-300 hover:text-teal-600'
+                    className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-all ${
+                      filters.quantity === f.value ? 'bg-teal-500 text-white font-medium' : 'bg-white border border-gray-200 text-gray-600'
                     }`}
                   >
                     {f.label}
@@ -317,16 +312,14 @@ export default function Inventory({ userId }: InventoryProps) {
 
             {/* Expiry Filter */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Expiry Date</p>
-              <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Expiry</p>
+              <div className="space-y-1">
                 {EXPIRY_FILTERS.map(f => (
                   <button
                     key={f.value}
                     onClick={() => updateFilter('expiry', f.value)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                      filters.expiry === f.value
-                        ? 'bg-teal-500 text-white font-medium'
-                        : 'bg-white border border-gray-200 text-gray-700 hover:border-teal-300 hover:text-teal-600'
+                    className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-all ${
+                      filters.expiry === f.value ? 'bg-teal-500 text-white font-medium' : 'bg-white border border-gray-200 text-gray-600'
                     }`}
                   >
                     {f.label}
@@ -337,16 +330,14 @@ export default function Inventory({ userId }: InventoryProps) {
 
             {/* Status Filter */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Status</p>
-              <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Status</p>
+              <div className="space-y-1">
                 {STATUS_FILTERS.map(f => (
                   <button
                     key={f.value}
                     onClick={() => updateFilter('status', f.value)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                      filters.status === f.value
-                        ? 'bg-teal-500 text-white font-medium'
-                        : 'bg-white border border-gray-200 text-gray-700 hover:border-teal-300 hover:text-teal-600'
+                    className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-all ${
+                      filters.status === f.value ? 'bg-teal-500 text-white font-medium' : 'bg-white border border-gray-200 text-gray-600'
                     }`}
                   >
                     {f.label}
@@ -358,25 +349,81 @@ export default function Inventory({ userId }: InventoryProps) {
         )}
       </div>
 
-      {/* Table Section Wrap */}
-      <div className="flex-1 overflow-hidden px-4 sm:px-6 py-4">
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden px-3 sm:px-6 py-3">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Package size={48} className="text-gray-300 mb-3" />
-            <p className="text-gray-500 font-medium">{search || hasActiveFilters ? 'No products match criteria' : 'No products yet'}</p>
-            {!search && !hasActiveFilters && <p className="text-gray-400 text-sm mt-1">Click "Add Product" to get started</p>}
+            <Package size={40} className="text-gray-300 mb-2" />
+            <p className="text-gray-500 text-sm font-medium">No products match criteria</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm h-full flex flex-col">
+          <div className="h-full flex flex-col">
             
-            {/* Essential Fix: This wrapper ensures table scrolls sideways on low screen widths instead of crushing layout columns */}
-            <div className="overflow-x-auto overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 240px)' }}>
-              <table className="w-full text-sm min-w-[600px] sm:min-w-full">
-                <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgba(243,244,246,1)]">
+            {/* 1. MOBILE ONLY VIEW (Screens < 640px) - Interactive Card Rows */}
+            <div className="block sm:hidden flex-1 overflow-y-auto space-y-2.5 pr-1" style={{ maxHeight: 'calc(100vh - 210px)' }}>
+              {filtered.map(product => {
+                const isLow = product.quantity <= product.min_threshold;
+                const isExpired = product.status === 'Expired';
+                const strips = product.quantity;
+                const tps = product.tablets_per_strip || 0;
+                
+                return (
+                  <div
+                    key={product.id}
+                    onClick={() => setSelectedProduct(product)}
+                    className="bg-white p-3 rounded-xl border border-gray-200/70 shadow-sm active:bg-gray-50 active:scale-[0.99] transition-all flex flex-col gap-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-sm line-clamp-1">{product.name}</h3>
+                        {product.specifications && (
+                          <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[200px]">{product.specifications}</p>
+                        )}
+                      </div>
+                      <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isExpired ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        {!isExpired && <span className="w-1 h-1 rounded-full bg-emerald-500" />}
+                        {product.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1 bg-gray-50 p-2 rounded-lg text-center border border-gray-100">
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-medium">Stock</p>
+                        <p className={`text-xs font-bold ${isLow ? 'text-amber-600' : 'text-gray-800'}`}>
+                          {strips} {strips === 1 ? 'strp' : 'strps'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-medium">Price</p>
+                        <p className="text-xs font-bold text-gray-800">₹{product.single_price.toFixed(0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-medium">Expiry</p>
+                        <p className={`text-xs font-bold truncate ${isExpired ? 'text-red-500' : 'text-gray-600'}`}>
+                          {product.expiry_date ? product.expiry_date.split('-').slice(1).join('/') : '—'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-gray-400 border-t border-gray-100 pt-1.5 px-0.5">
+                      <span>Batch: <strong className="text-gray-600 font-medium">{product.batch_number || '—'}</strong></span>
+                      <span>Drawer: <strong className="text-gray-600 font-medium">{product.drawer_number || '—'}</strong></span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 2. TABLET/DESKTOP VIEW (Screens >= 640px) - Normal Detailed Table */}
+            <div className="hidden sm:block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm flex-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-100">
                   <tr>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       <button onClick={() => handleSort('name')} className="flex items-center gap-1.5 hover:text-gray-800 transition-colors">
@@ -417,39 +464,27 @@ export default function Inventory({ userId }: InventoryProps) {
                         <td className="px-4 py-3">
                           <div className="font-medium text-gray-900 group-hover:text-teal-700 transition-colors">{product.name}</div>
                           {product.specifications && (
-                            <div className="text-xs text-gray-400 mt-0.5 truncate max-w-[140px] sm:max-w-[180px]">{product.specifications}</div>
+                            <div className="text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{product.specifications}</div>
                           )}
                         </td>
                         <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{product.batch_number || '—'}</td>
                         <td className="px-4 py-3">
-                          {(() => {
-                            const strips = product.quantity;
-                            const tps = product.tablets_per_strip || 0;
-                            const canTablet = product.sell_by_tablet && tps > 0;
-                            return (
-                              <div className="flex flex-col">
-                                <span className={`font-semibold whitespace-nowrap ${isLow ? 'text-amber-600' : 'text-gray-800'}`}>
-                                  {strips} {strips === 1 ? 'strip' : 'strips'}
-                                  {isLow && <AlertTriangle size={12} className="inline ml-1 text-amber-500" />}
-                                </span>
-                                {canTablet && (
-                                  <span className="text-xs text-gray-400 whitespace-nowrap">
-                                    = {strips * tps} tabs
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })()}
+                          <div className="flex flex-col">
+                            <span className={`font-semibold ${isLow ? 'text-amber-600' : 'text-gray-800'}`}>
+                              {product.quantity} {product.quantity === 1 ? 'strip' : 'strips'}
+                              {isLow && <AlertTriangle size={12} className="inline ml-1 text-amber-500" />}
+                            </span>
+                          </div>
                         </td>
-                        <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">₹{product.single_price.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-gray-600 hidden lg:table-cell whitespace-nowrap">₹{(product.total_price ?? 0).toFixed(2)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 font-medium text-gray-800">₹{product.single_price.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">₹{(product.total_price ?? 0).toFixed(2)}</td>
+                        <td className="px-4 py-3">
                           <span className={isExpired ? 'text-red-600 font-medium' : 'text-gray-600'}>
                             {product.expiry_date || '—'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{product.drawer_number || '—'}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
                             isExpired ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
                           }`}>
@@ -464,18 +499,18 @@ export default function Inventory({ userId }: InventoryProps) {
               </table>
             </div>
 
-            {/* Pagination / Load More section footer */}
+            {/* Load More Footer */}
             {hasMore && (
-              <div className="flex justify-center py-4 border-t border-gray-50 bg-white">
+              <div className="flex justify-center py-3 border-t border-gray-100 bg-transparent sm:bg-white mt-2 sm:mt-0">
                 <button
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-50 text-teal-700 text-sm font-semibold hover:bg-teal-100 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-teal-50 text-teal-700 text-xs sm:text-sm font-semibold hover:bg-teal-100 transition-colors disabled:opacity-50"
                 >
                   {loadingMore ? (
-                    <><div className="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" /> Loading…</>
+                    <><div className="w-3.5 h-3.5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" /> Loading…</>
                   ) : (
-                    <><PlusCircle size={16} /> Load More</>
+                    <><PlusCircle size={15} /> Load More</>
                   )}
                 </button>
               </div>
